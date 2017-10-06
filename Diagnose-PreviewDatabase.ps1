@@ -1,21 +1,28 @@
 ﻿param(
-[ValidateScript({Test-Path $_ -PathType 'Container'})] 
-[string]$ServicesPath='C:\SDLServices\',
-[string]$PreviewStorageConfig=$ServicesPath + 'Preview\config\cd_storage_conf.xml'
+[string]$PreviewStorageConfig,
+[string]$ContentStorageConfig,
+[string]$token
 )
 
 
 $PreviewStorageDom = [xml](gc $PreviewStorageConfig)
 
-$SessionWrapperXPath = Select-Xml -Xml $PreviewStorageDom `
-                                -XPath "Configuration/Global/Storages/Wrappers/Wrapper/Storage[@Id='sessionDb']"
-if ($SessionWrapperXPath.Node -eq $null) {
+$sessionWrapperXPath = "Configuration/Global/Storages/Wrappers/Wrapper/Storage[1]"
+$SessionWrapperSelect = Select-Xml -Xml $PreviewStorageDom -XPath $sessionWrapperXPath
+if ($SessionWrapperSelect.Node -eq $null) {
     "Unable to locate Session wrapper storage config for your Preview Service. This is sufficient reason for XPM to function incorrectly"
     exit
 } else {
-    $SessionWrapper = $SessionWrapperXPath.Node
+    $SessionWrapper = $SessionWrapperSelect.Node
 }
 
+$ContentStorageDom = [xml](gc $ContentStorageConfig)
+$ContentSessionWrapperSelect = Select-Xml -Xml $ContentStorageDom -XPath $sessionWrapperXPath
+
+if ($ContentSessionWrapperSelect.Node -eq $null) {
+    "Unable to locate Session wrapper storage config for your Content Service. This is sufficient reason for XPM to function incorrectly"
+    exit
+}
 
 $DbServerName = (Select-Xml -Xml $SessionWrapper -XPath "DataSource/Property[@Name='serverName']").Node.Value
 $DbPortNumber = (Select-Xml -Xml $SessionWrapper -XPath "DataSource/Property[@Name='portNumber']").Node.Value
@@ -59,10 +66,12 @@ function Execute-Query ($query){
   $reader.Close()
 }
 
+if ($token) {
 $RecordsFound = Count-MatchingRecords "SELECT PREVIEW_SESSION_ID FROM PREVIEW_SESSIONS WHERE PREVIEW_SESSION_ID = '$token'"
 
-if ($RecordsFound -lt 1) {
-    "You are hosed, give up now"
+    if ($RecordsFound -lt 1) {
+        "Checked for PREVIEW_SESSIONS record matching your token: $token. None found. You have a problem... maybe"
+    }
 }
 
 Execute-Query "SELECT * from PREVIEW_SESSIONS"
