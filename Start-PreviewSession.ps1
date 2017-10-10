@@ -1,11 +1,9 @@
 ﻿Param(
-    [string]$cmsUrl = "http://sdlweb",
-    [string]$pageId = "tcm:5-238-64",  # TODO: support WebDAV URL
-    [string]$pageTemplateId = "tcm:5-193-128"  # TODO: determine from Page (using Core Service)
+    [string]$cmsUrl = "http://localhost:81",
+    [string]$pageId = "tcm:5-224-64",  # TODO: support WebDAV URL
+    [string]$pageTemplateId = "tcm:5-182-128",  # TODO: determine from Page (using Core Service)
+    [string]$publishingTargetId = "tcm:0-2-65538"  # TODO: Support Purpose (lookup Target Type using Core Service)
 )
-
-
-#import-module Tridion-CoreService
 
 
 $getPreviewTokenUrl = "$cmsUrl/WebUI/Models/SiteEdit/Services/SessionPreviewService.svc/GetPreviewToken"
@@ -22,7 +20,7 @@ $publishedItemInfo = @{
 
 $getPreviewTokenBody = @{
     publishedItemsInfo = @($publishedItemInfo)
-    publishingTargetId = "tcm:0-2-65538"
+    publishingTargetId = $publishingTargetId
     }
 
 $getPreviewTokenJson = $getPreviewTokenBody | ConvertTo-Json
