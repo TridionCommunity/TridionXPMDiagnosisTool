@@ -1,9 +1,14 @@
 ﻿param(
+[ValidateScript({Test-Path $_ -PathType 'Leaf'})] 
 [string]$PreviewStorageConfig,
+[ValidateScript({Test-Path $_ -PathType 'Leaf'})]
 [string]$ContentStorageConfig,
+[ValidateNotNullOrEmpty()]
 [string]$token
 )
 
+
+$scriptPath = Split-Path $script:MyInvocation.MyCommand.Path
 
 $PreviewStorageDom = [xml](gc $PreviewStorageConfig)
 
@@ -38,43 +43,33 @@ $connStringBuilder["Password"] = $DbPassword
 
 $conn = new-object System.Data.SqlClient.SqlConnection
 $conn.ConnectionString = $connStringBuilder.ConnectionString
+#TODO - catch here and give a message 
 $conn.Open()
 
-function Count-MatchingRecords ($query){
-  $comm = new-object System.Data.SqlClient.SqlCommand
-  $comm.CommandText = $query
-  $comm.CommandType = "Text"
-  $comm.Connection = $conn
-  $comm.ExecuteNonQuery() 
-}  
+$comm = new-object System.Data.SqlClient.SqlCommand
+$comm.CommandText = "SELECT PREVIEW_SESSION_ID, EXPIRATION_DATE FROM PREVIEW_SESSIONS"
+$comm.CommandType = "Text"
+$comm.Connection = $conn
 
-function Execute-Query ($query){
-  $comm = new-object System.Data.SqlClient.SqlCommand
-  $comm.CommandText = $query
-  $comm.CommandType = "Text"
-  $comm.Connection = $conn
-  
-  $reader = $comm.ExecuteReader() 
-  while ($reader.Read()){
-    $result = $tabs = ""
-     for ($i = 0;$i -lt $reader.FieldCount; $i++){
-       $result += "$tabs{0}" -f $reader.GetValue($i) 
-       $tabs = "`t`t`t"
+$reader = $comm.ExecuteReader() 
+$foundCount = 0
+while ($reader.Read()){
+     $sessionId = $reader.GetString(0) 
+     $expirationDate = $reader.GetDateTime(1)
+
+     $sessionToken = (& $scriptPath\Encrypt-SessionId -SessionId $sessionId)
+     if ($sessionToken -eq $token) {
+        if ($foundCount++ -lt 1) {
+            "Matching session record found. All is well with the world."
+        }
+        "$sessionToken`t$sessionId`t$expirationDate"
      }
-     $result
-  } 
-  $reader.Close()
+} 
+$reader.Close()
+if ($foundCount -lt 1) {
+    "No matching session found. Back to the drawing board"    
 }
 
-if ($token) {
-$RecordsFound = Count-MatchingRecords "SELECT PREVIEW_SESSION_ID FROM PREVIEW_SESSIONS WHERE PREVIEW_SESSION_ID = '$token'"
-
-    if ($RecordsFound -lt 1) {
-        "Checked for PREVIEW_SESSIONS record matching your token: $token. None found. You have a problem... maybe"
-    }
-}
-
-Execute-Query "SELECT * from PREVIEW_SESSIONS"
 
 $Conn.Close()
 

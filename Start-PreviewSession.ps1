@@ -35,5 +35,5 @@ $getPreventTokenResponse = Invoke-RestMethod `
     -Body $getPreviewTokenJson `
     -UseDefaultCredentials 
 
-Write-Host "Preview Token:"
+# Write-Host "Preview Token:"
 $getPreventTokenResponse.d
